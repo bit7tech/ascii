@@ -1,0 +1,3 @@
+[submodule "modules/kore"]
+	path = modules/kore
+	url = git@github.com:bit7tech/kore.git
