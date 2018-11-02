@@ -13,6 +13,7 @@ int kmain(int argc, char** argv)
     mainWindow.title = stringMake("ASCII demo");
     mainWindow.bounds.size.cx = 800;
     mainWindow.bounds.size.cy = 600;
+    mainWindow.resizeable = YES;
     windowApply(&mainWindow);
 
     WindowEvent ev;
@@ -26,9 +27,18 @@ int kmain(int argc, char** argv)
             switch (ev.type)
             {
             case K_EVENT_QUIT:
-                if (ev.handle == mainWindow.handle)
+                run = NO;
+                break;
+
+            case K_EVENT_INPUT:
+                if (ev.input.down && ev.input.alt && (ev.input.key == VK_RETURN))
                 {
-                    run = NO;
+                    mainWindow.fullscreen = !mainWindow.fullscreen;
+                }
+
+                if (ev.input.down && ev.input.key == VK_ESCAPE)
+                {
+                    windowDone(&mainWindow);
                 }
                 break;
 
@@ -39,8 +49,6 @@ int kmain(int argc, char** argv)
             windowApply(&mainWindow);
         }
     }
-
-    windowDone(&mainWindow);
     return 0;
 }
 
