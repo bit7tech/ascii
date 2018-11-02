@@ -55,6 +55,7 @@ solution "ascii"
 
         -- Libraries to link to (libraries only have release versions)
         links {
+            "opengl32.lib"
         }
 
         -- Defines to make
