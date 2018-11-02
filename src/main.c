@@ -11,15 +11,38 @@
 
 void paint(const Window* wnd)
 {
-    glClearColor(1.0f, 0, 0, 1);
+    glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT);
+
+    GLuint va;
+    glGenVertexArrays(1, &va);
+    glBindVertexArray(va);
+
+    static const GLfloat buffer[] = {
+        -1.0f, -1.0f, 0.0f,
+        1.0f, -1.0f, 0.0f,
+        0.0f, 1.0f, 0.0f,
+    };
+
+    GLuint vb;
+    glGenBuffers(1, &vb);
+    glBindBuffer(GL_ARRAY_BUFFER, vb);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(buffer), buffer, GL_STATIC_DRAW);
+
+    glEnableVertexAttribArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, vb);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glDisableVertexAttribArray(0);
+
+    glDeleteBuffers(1, &vb);
+    glDeleteVertexArrays(1, &va);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 int kmain(int argc, char** argv)
 {
-    glInit();
     Window mainWindow;
     windowInit(&mainWindow);
     mainWindow.title = stringMake("ASCII demo");
