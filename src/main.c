@@ -32,6 +32,8 @@ void compileShader(GLuint shader, const char* code)
     }
 }
 
+//----------------------------------------------------------------------------------------------------------------------
+
 GLuint createProgram(GLuint vertexShader, GLuint fragmentShader)
 {
     GLuint program = glCreateProgram();
@@ -55,12 +57,20 @@ GLuint createProgram(GLuint vertexShader, GLuint fragmentShader)
     return program;
 }
 
+//----------------------------------------------------------------------------------------------------------------------
+
 void initOpenGL()
 {
     static const GLfloat buffer[] = {
-        -1.0f, -1.0f,
-        1.0f, -1.0f,
-        0.0f, 1.0f,
+        // Top left
+        1.0f, 1.0f,
+        799.0f, 1.0f,
+        1.0f, 599.0f,
+
+        // Bottom right
+        1.0f, 599.0f,
+        799.0f, 1.0f,
+        799.0f, 599.0f,
     };
 
     glGenBuffers(1, &gVb);
@@ -75,10 +85,15 @@ void initOpenGL()
 
     const char* vertexCode =
         "#version 330 core\n"
-        "layout(location = 0) in vec3 v;"
+        "layout(location = 0) in vec2 v;"
+        "uniform vec2 uResolution = { 800.0, 600.0 };"
         "void main() {"
-        "    gl_Position.xyz = v;"
-        "    gl_Position.w = 1.0;"
+        "    vec2 vertexCoords = v / uResolution;"
+        "    vertexCoords.y = 1.0 - vertexCoords.y;"
+        "    vec2 vertexPosition = (vertexCoords * 2.0) - 1.0;"
+//         "    vec2 vertexPosition = v.xy;"
+        "    gl_Position.xy = vertexPosition;"
+        "    gl_Position.zw = vec2(0.0, 1.0);"
         "}";
 
     const char* pixelCode =
@@ -117,10 +132,17 @@ void paint(const Window* wnd)
 {
     if (gOpenGLReady)
     {
+        // Initialise drawing
         glClearColor(0, 0, 0, 1);
         glClear(GL_COLOR_BUFFER_BIT);
+
+        // Set uniforms
+        GLint uResolution = glGetUniformLocation(gProgram, "uResolution");
+        glProgramUniform2f(gProgram, uResolution, (float)wnd->bounds.size.cx, (float)wnd->bounds.size.cy);
+
         glUseProgram(gProgram);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+
+        glDrawArrays(GL_TRIANGLES, 0, 6);
     }
 }
 
