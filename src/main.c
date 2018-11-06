@@ -7,10 +7,15 @@
 #include <kore/kui.h>
 #include <kore/kgl.h>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
 //----------------------------------------------------------------------------------------------------------------------
 
 GLuint gVb;
 GLuint gProgram;
+GLuint gFontTex;
+u32* gFontImage;
 bool gOpenGLReady = NO;
 
 void compileShader(GLuint shader, const char* code)
@@ -59,18 +64,43 @@ GLuint createProgram(GLuint vertexShader, GLuint fragmentShader)
 
 //----------------------------------------------------------------------------------------------------------------------
 
+GLuint loadTexture(const char* fileName, u32** outImage)
+{
+    Data file = dataLoad(fileName);
+    GLuint textureID = 0;
+
+    if (file.bytes)
+    {
+        int width, height, bpp;
+        *outImage = (u32*)stbi_load_from_memory(file.bytes, (int)file.size, &width, &height, &bpp, 4);
+        dataUnload(file);
+
+        glGenTextures(1, &textureID);
+        glBindTexture(GL_TEXTURE_2D, textureID);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 160, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, *outImage);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    }
+    return textureID;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+#define GL_BUFFER_OFFSET(x) ((void *)(x))
+
 void initOpenGL()
 {
     static const GLfloat buffer[] = {
+        //  X       Y       TX      TY
         // Top left
-        1.0f, 1.0f,
-        799.0f, 1.0f,
-        1.0f, 599.0f,
+            -1.0f,  -1.0f,  0.0f,   0.0f,
+            1.0f,   -1.0f,  1.0f,   0.0f,
+            -1.0f,  1.0f,   0.0f,   1.0f,
 
         // Bottom right
-        1.0f, 599.0f,
-        799.0f, 1.0f,
-        799.0f, 599.0f,
+            -1.0f,  1.0f,   0.0f,   1.0f,
+            1.0f,   -1.0f,  1.0f,   0.0f,
+            1.0f,   1.0f,   1.0f,   1.0f,
     };
 
     glGenBuffers(1, &gVb);
@@ -78,7 +108,9 @@ void initOpenGL()
     glBufferData(GL_ARRAY_BUFFER, sizeof(buffer), buffer, GL_STATIC_DRAW);
 
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), GL_BUFFER_OFFSET(0));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), GL_BUFFER_OFFSET(2 * sizeof(float)));
 
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
     GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
@@ -86,21 +118,22 @@ void initOpenGL()
     const char* vertexCode =
         "#version 330 core\n"
         "layout(location = 0) in vec2 v;"
-        "uniform vec2 uResolution = { 800.0, 600.0 };"
+        "layout(location = 1) in vec2 t;"
+        "out vec2 texCoord;"
         "void main() {"
-        "    vec2 vertexCoords = v / uResolution;"
-        "    vertexCoords.y = 1.0 - vertexCoords.y;"
-        "    vec2 vertexPosition = (vertexCoords * 2.0) - 1.0;"
-//         "    vec2 vertexPosition = v.xy;"
-        "    gl_Position.xy = vertexPosition;"
+        "    vec2 vv = vec2(v.x, -v.y);"
+        "    gl_Position.xy = vv;"
         "    gl_Position.zw = vec2(0.0, 1.0);"
+        "    texCoord = t;"
         "}";
 
     const char* pixelCode =
         "#version 330 core\n"
+        "in vec2 texCoord;"
         "out vec3 colour;"
+        "uniform sampler2D fontText;"
         "void main() {"
-        "    colour = vec3(0, 1, 0);"
+        "    colour = texture(fontText, texCoord).rgb;"
         "}";
 
     compileShader(vertexShader, vertexCode);
@@ -112,6 +145,9 @@ void initOpenGL()
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
+    // Set up textures
+    gFontTex = loadTexture("font_10_16.png", &gFontImage);
+
     gOpenGLReady = YES;
 }
 
@@ -120,8 +156,12 @@ void initOpenGL()
 void doneOpenGL()
 {
     glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(1);
     glDeleteBuffers(1, &gVb);
     glDeleteProgram(gProgram);
+
+    glDeleteTextures(1, &gFontTex);
+    stbi_image_free(gFontImage);
 
     gOpenGLReady = NO;
 }
@@ -137,8 +177,9 @@ void paint(const Window* wnd)
         glClear(GL_COLOR_BUFFER_BIT);
 
         // Set uniforms
-        GLint uResolution = glGetUniformLocation(gProgram, "uResolution");
-        glProgramUniform2f(gProgram, uResolution, (float)wnd->bounds.size.cx, (float)wnd->bounds.size.cy);
+        GLint uFontTex = glGetUniformLocation(gProgram, "fontTex");
+//         GLint uResolution = glGetUniformLocation(gProgram, "uResolution");
+//         glProgramUniform2f(gProgram, uResolution, (float)wnd->bounds.size.cx, (float)wnd->bounds.size.cy);
 
         glUseProgram(gProgram);
 
