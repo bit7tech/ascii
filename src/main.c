@@ -10,7 +10,50 @@
 //----------------------------------------------------------------------------------------------------------------------
 
 GLuint gVb;
+GLuint gProgram;
 bool gOpenGLReady = NO;
+
+void compileShader(GLuint shader, const char* code)
+{
+    GLuint result = 0;
+    GLuint infoLogLength = 0;
+
+    glShaderSource(shader, 1, &code, NULL);
+    glCompileShader(shader);
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &result);
+    glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &infoLogLength);
+    if (infoLogLength > 0)
+    {
+        String error = stringReserve(infoLogLength);
+        glGetShaderInfoLog(shader, infoLogLength, NULL, error);
+        prn("%s", error);
+        stringDone(&error);
+        abort();
+    }
+}
+
+GLuint createProgram(GLuint vertexShader, GLuint fragmentShader)
+{
+    GLuint program = glCreateProgram();
+    glAttachShader(program, vertexShader);
+    glAttachShader(program, fragmentShader);
+    glLinkProgram(program);
+
+    GLuint result = 0;
+    int logLength = 0;
+    glGetProgramiv(program, GL_LINK_STATUS, &result);
+    glGetProgramiv(program, GL_INFO_LOG_LENGTH, &logLength);
+    if (logLength > 0)
+    {
+        String error = stringReserve(logLength);
+        glGetProgramInfoLog(program, logLength, NULL, error);
+        prn("%s", error);
+        stringDone(&error);
+        abort();
+    }
+
+    return program;
+}
 
 void initOpenGL()
 {
@@ -27,6 +70,33 @@ void initOpenGL()
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
+    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+
+    const char* vertexCode =
+        "#version 330 core\n"
+        "layout(location = 0) in vec3 v;"
+        "void main() {"
+        "    gl_Position.xyz = v;"
+        "    gl_Position.w = 1.0;"
+        "}";
+
+    const char* pixelCode =
+        "#version 330 core\n"
+        "out vec3 colour;"
+        "void main() {"
+        "    colour = vec3(0, 1, 0);"
+        "}";
+
+    compileShader(vertexShader, vertexCode);
+    compileShader(fragmentShader, pixelCode);
+    gProgram = createProgram(vertexShader, fragmentShader);
+
+    glDetachShader(gProgram, vertexShader);
+    glDetachShader(gProgram, fragmentShader);
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
     gOpenGLReady = YES;
 }
 
@@ -36,6 +106,7 @@ void doneOpenGL()
 {
     glDisableVertexAttribArray(0);
     glDeleteBuffers(1, &gVb);
+    glDeleteProgram(gProgram);
 
     gOpenGLReady = NO;
 }
@@ -48,6 +119,7 @@ void paint(const Window* wnd)
     {
         glClearColor(0, 0, 0, 1);
         glClear(GL_COLOR_BUFFER_BIT);
+        glUseProgram(gProgram);
         glDrawArrays(GL_TRIANGLES, 0, 3);
     }
 }
