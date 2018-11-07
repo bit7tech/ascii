@@ -47,6 +47,7 @@ solution "ascii"
             "../src/**.h",
             "../modules/kore/include/**.h",
             "../README.md",
+			"../data/**",
 		}
         includedirs {
             "../src",

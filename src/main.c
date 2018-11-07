@@ -115,35 +115,20 @@ void initOpenGL()
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
     GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
 
-    const char* vertexCode =
-        "#version 330 core\n"
-        "layout(location = 0) in vec2 v;"
-        "layout(location = 1) in vec2 t;"
-        "out vec2 texCoord;"
-        "void main() {"
-        "    vec2 vv = vec2(v.x, -v.y);"
-        "    gl_Position.xy = vv;"
-        "    gl_Position.zw = vec2(0.0, 1.0);"
-        "    texCoord = t;"
-        "}";
+    Data vertexCode = dataLoad("ascii.vs");
+    Data pixelCode = dataLoad("ascii.fs");
 
-    const char* pixelCode =
-        "#version 330 core\n"
-        "in vec2 texCoord;"
-        "out vec3 colour;"
-        "uniform sampler2D fontText;"
-        "void main() {"
-        "    colour = texture(fontText, texCoord).rgb;"
-        "}";
-
-    compileShader(vertexShader, vertexCode);
-    compileShader(fragmentShader, pixelCode);
+    compileShader(vertexShader, vertexCode.bytes);
+    compileShader(fragmentShader, pixelCode.bytes);
     gProgram = createProgram(vertexShader, fragmentShader);
 
     glDetachShader(gProgram, vertexShader);
     glDetachShader(gProgram, fragmentShader);
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
+
+    dataUnload(vertexCode);
+    dataUnload(pixelCode);
 
     // Set up textures
     gFontTex = loadTexture("font_10_16.png", &gFontImage);
