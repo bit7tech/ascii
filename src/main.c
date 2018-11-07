@@ -170,6 +170,13 @@ void glMessage(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei l
     if (severity == GL_DEBUG_SEVERITY_HIGH) K_BREAK();
 }
 
+void fillTexture(u32* image, GLuint id, u32 colour, int width, int height)
+{
+    int count = width * height;
+    for (int i = 0; i < count; ++i) image[i] = colour;
+    updateDynamicTexture(id, image, width, height);
+}
+
 void initOpenGL()
 {
     static const GLfloat buffer[] = {
@@ -215,10 +222,46 @@ void initOpenGL()
     dataUnload(vertexCode);
     dataUnload(pixelCode);
 
+    glUseProgram(gProgram);
+
     // Set up textures
+    int cw = 800 / 10;
+    int ch = 600 / 16;
     gFontTex = loadTexture("font_10_16.png");
-    gForeTex = createDynamicTexture(800, 600, &gForeImage);
-    //glBindTexture(GL_TEXTURE_2D, gFontTex);
+    gForeTex = createDynamicTexture(cw, ch, &gForeImage);
+    gBackTex = createDynamicTexture(cw, ch, &gBackImage);
+    gAsciiTex = createDynamicTexture(cw, ch, &gAsciiImage);
+
+    GLuint loc;
+
+    // Bind shader variable "fontTex" to texture unit 0, then bind our texture to texture unit 0.
+    loc = glGetUniformLocation(gProgram, "fontTex");
+    glUniform1i(loc, 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, gFontTex);
+
+    // Bind shader variable "foreTex" to texture unit 1, then bind our texture to texture unit 1.
+    loc = glGetUniformLocation(gProgram, "foreTex");
+    glUniform1i(loc, 1);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, gForeTex);
+
+    // Bind shader variable "fontTex" to texture unit 2, then bind our texture to texture unit 2.
+    loc = glGetUniformLocation(gProgram, "backTex");
+    glUniform1i(loc, 2);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, gBackTex);
+
+    // Bind shader variable "fontTex" to texture unit 3, then bind our texture to texture unit 3.
+    loc = glGetUniformLocation(gProgram, "asciiTex");
+    glUniform1i(loc, 3);
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, gAsciiTex);
+
+    // Let's do some example initialisation.
+    fillTexture(gForeImage, gForeTex, 0xff0000ff, cw, ch);
+    fillTexture(gBackImage, gBackTex, 0xff000000, cw, ch);
+    fillTexture(gAsciiImage, gAsciiTex, 0x43434343, cw, ch);
 
     gOpenGLReady = YES;
 }
@@ -232,7 +275,12 @@ void doneOpenGL()
     glDeleteBuffers(1, &gVb);
     glDeleteProgram(gProgram);
     glDeleteTextures(1, &gFontTex);
-    destroyDynamicTexture(gForeImage, 800, 600, gForeTex);
+
+    int cw = 800 / 10;
+    int ch = 600 / 16;
+    destroyDynamicTexture(gForeImage, cw, ch, gForeTex);
+    destroyDynamicTexture(gBackImage, cw, ch, gBackTex);
+    destroyDynamicTexture(gAsciiImage, cw, ch, gAsciiTex);
 
     gOpenGLReady = NO;
 }
@@ -255,14 +303,12 @@ void onPaint(const Window* wnd)
         glClear(GL_COLOR_BUFFER_BIT);
 
         // Set uniforms
-        //GLint uFontTex = glGetUniformLocation(gProgram, "fontTex");
-//         GLint uResolution = glGetUniformLocation(gProgram, "uResolution");
-//         glProgramUniform2f(gProgram, uResolution, (float)wnd->bounds.size.cx, (float)wnd->bounds.size.cy);
+        GLint uFontRes = glGetUniformLocation(gProgram, "uFontRes");
+        glProgramUniform2f(gProgram, uFontRes, 10.0f, 16.0f);
+        GLint uResolution = glGetUniformLocation(gProgram, "uResolution");
+        glProgramUniform2f(gProgram, uResolution, (float)wnd->bounds.size.cx, (float)wnd->bounds.size.cy);
 
         glUseProgram(gProgram);
-
-        for (int i = 0; i < 800; ++i) gForeImage[i] = 0xff00ff00;
-        updateDynamicTexture(gForeTex, gForeImage, 800, 600);
 
         glDrawArrays(GL_TRIANGLES, 0, 6);
     }
