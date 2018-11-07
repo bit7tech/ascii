@@ -168,7 +168,14 @@ void doneOpenGL()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void paint(const Window* wnd)
+void onSize(const Window* wnd, int width, int height)
+{
+
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void onPaint(const Window* wnd)
 {
     if (gOpenGLReady)
     {
@@ -198,7 +205,8 @@ int kmain(int argc, char** argv)
     mainWindow.bounds.size.cy = 600;
     mainWindow.resizeable = YES;
     mainWindow.opengl = YES;
-    mainWindow.paintFunc = &paint;
+    mainWindow.paintFunc = &onPaint;
+    mainWindow.sizeFunc = &onSize;
     windowApply(&mainWindow);
     initOpenGL();
 
