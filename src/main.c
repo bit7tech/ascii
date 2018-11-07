@@ -22,6 +22,10 @@ u32* gForeImage;
 u32* gBackImage;
 u32* gAsciiImage;
 bool gOpenGLReady = NO;
+int gFontWidth = 0;
+int gFontHeight = 0;
+int gImageWidth = 0;
+int gImageHeight = 0;
 
 void compileShader(GLuint shader, const char* code)
 {
@@ -69,7 +73,7 @@ GLuint createProgram(GLuint vertexShader, GLuint fragmentShader)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-GLuint loadTexture(const char* fileName)
+GLuint loadFontTexture(const char* fileName)
 {
     Data file = dataLoad(fileName);
     GLuint textureID = 0;
@@ -79,12 +83,16 @@ GLuint loadTexture(const char* fileName)
         int width, height, bpp;
         u32* image = (u32*)stbi_load_from_memory(file.bytes, (int)file.size, &width, &height, &bpp, 4);
         dataUnload(file);
+        gFontWidth = width / 16;
+        gFontHeight = height / 16;
 
         glGenTextures(1, &textureID);
         glBindTexture(GL_TEXTURE_2D, textureID);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 160, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
         stbi_image_free(image);
     }
     return textureID;
@@ -103,10 +111,20 @@ GLuint createDynamicTexture(int width, int height, u32** outImage)
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_BGRA, GL_UNSIGNED_BYTE, image);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 
     *outImage = image;
     return texId;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void resizeDynamicTexture(GLuint id, int oldWidth, int oldHeight, int newWidth, int newHeight, u32** outImage)
+{
+    *outImage = K_REALLOC(*outImage, oldWidth * oldHeight * sizeof(u32), newWidth * newHeight * sizeof(u32));
+    glBindTexture(GL_TEXTURE_2D, id);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, newWidth, newHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, *outImage);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -177,7 +195,7 @@ void fillTexture(u32* image, GLuint id, u32 colour, int width, int height)
     updateDynamicTexture(id, image, width, height);
 }
 
-void initOpenGL()
+void initOpenGL(int width, int height)
 {
     static const GLfloat buffer[] = {
         //  X       Y       TX      TY
@@ -225,12 +243,14 @@ void initOpenGL()
     glUseProgram(gProgram);
 
     // Set up textures
-    int cw = 800 / 10;
-    int ch = 600 / 16;
-    gFontTex = loadTexture("font_10_16.png");
+    gFontTex = loadFontTexture("font_10_16.png");
+    int cw = width / gFontWidth;
+    int ch = height / gFontHeight;
     gForeTex = createDynamicTexture(cw, ch, &gForeImage);
     gBackTex = createDynamicTexture(cw, ch, &gBackImage);
     gAsciiTex = createDynamicTexture(cw, ch, &gAsciiImage);
+    gImageWidth = cw;
+    gImageHeight = ch;
 
     GLuint loc;
 
@@ -262,6 +282,8 @@ void initOpenGL()
     fillTexture(gForeImage, gForeTex, 0xff0000ff, cw, ch);
     fillTexture(gBackImage, gBackTex, 0xff000000, cw, ch);
     fillTexture(gAsciiImage, gAsciiTex, 0x43434343, cw, ch);
+    for (int i = 0; i < cw; ++i) gAsciiImage[i] = i;
+    updateDynamicTexture(gAsciiTex, gAsciiImage, cw, ch);
 
     gOpenGLReady = YES;
 }
@@ -289,7 +311,24 @@ void doneOpenGL()
 
 void onSize(const Window* wnd, int width, int height)
 {
+    if (gOpenGLReady)
+    {
+        int cw = width / gFontWidth;
+        int ch = height / gFontHeight;
 
+        resizeDynamicTexture(gForeTex, gImageWidth, gImageHeight, cw, ch, &gForeImage);
+        resizeDynamicTexture(gBackTex, gImageWidth, gImageHeight, cw, ch, &gBackImage);
+        resizeDynamicTexture(gAsciiTex, gImageWidth, gImageHeight, cw, ch, &gAsciiImage);
+
+        fillTexture(gForeImage, gForeTex, 0xff0000ff, cw, ch);
+        fillTexture(gBackImage, gBackTex, 0xff000000, cw, ch);
+        fillTexture(gAsciiImage, gAsciiTex, 0x43434343, cw, ch);
+        for (int i = 0; i < cw; ++i) gAsciiImage[i] = i;
+        updateDynamicTexture(gAsciiTex, gAsciiImage, cw, ch);
+
+        gImageWidth = cw;
+        gImageHeight = ch;
+    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -304,7 +343,7 @@ void onPaint(const Window* wnd)
 
         // Set uniforms
         GLint uFontRes = glGetUniformLocation(gProgram, "uFontRes");
-        glProgramUniform2f(gProgram, uFontRes, 10.0f, 16.0f);
+        glProgramUniform2f(gProgram, uFontRes, (float)gFontWidth, (float)gFontHeight);
         GLint uResolution = glGetUniformLocation(gProgram, "uResolution");
         glProgramUniform2f(gProgram, uResolution, (float)wnd->bounds.size.cx, (float)wnd->bounds.size.cy);
 
@@ -318,17 +357,20 @@ void onPaint(const Window* wnd)
 
 int kmain(int argc, char** argv)
 {
+    const int width = 800;
+    const int height = 600;
+
     Window mainWindow;
     windowInit(&mainWindow);
     mainWindow.title = stringMake("ASCII demo");
-    mainWindow.bounds.size.cx = 800;
-    mainWindow.bounds.size.cy = 600;
+    mainWindow.bounds.size.cx = width;
+    mainWindow.bounds.size.cy = height;
     mainWindow.resizeable = YES;
     mainWindow.opengl = YES;
     mainWindow.paintFunc = &onPaint;
     mainWindow.sizeFunc = &onSize;
     windowApply(&mainWindow);
-    initOpenGL();
+    initOpenGL(width, height);
 
     WindowEvent ev;
     bool run = YES;
