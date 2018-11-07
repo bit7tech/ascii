@@ -281,7 +281,7 @@ void initOpenGL(int width, int height)
     // Let's do some example initialisation.
     fillTexture(gForeImage, gForeTex, 0xff0000ff, cw, ch);
     fillTexture(gBackImage, gBackTex, 0xff000000, cw, ch);
-    fillTexture(gAsciiImage, gAsciiTex, 0x43434343, cw, ch);
+    fillTexture(gAsciiImage, gAsciiTex, 0x4c4c4c4c, cw, ch);
     for (int i = 0; i < cw; ++i) gAsciiImage[i] = i;
     updateDynamicTexture(gAsciiTex, gAsciiImage, cw, ch);
 
@@ -322,7 +322,7 @@ void onSize(const Window* wnd, int width, int height)
 
         fillTexture(gForeImage, gForeTex, 0xff0000ff, cw, ch);
         fillTexture(gBackImage, gBackTex, 0xff000000, cw, ch);
-        fillTexture(gAsciiImage, gAsciiTex, 0x43434343, cw, ch);
+        fillTexture(gAsciiImage, gAsciiTex, 0x4c4c4c4c, cw, ch);
         for (int i = 0; i < cw; ++i) gAsciiImage[i] = i;
         updateDynamicTexture(gAsciiTex, gAsciiImage, cw, ch);
 
