@@ -8,12 +8,28 @@
 #include <game.h>
 
 //----------------------------------------------------------------------------------------------------------------------
+// World
+//----------------------------------------------------------------------------------------------------------------------
+
+STRUCT_START(World)
+{
+    int width;
+    int x;
+    f64 t;
+}
+STRUCT_END(World);
+
+World gWorld;
+
+//----------------------------------------------------------------------------------------------------------------------
 // Initialisation
 //----------------------------------------------------------------------------------------------------------------------
 
 void init()
 {
-
+    gWorld.width = 80;
+    gWorld.x = 0;
+    gWorld.t = 0;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -26,44 +42,51 @@ void done()
 }
 
 //----------------------------------------------------------------------------------------------------------------------
-// Tick
+// Simulate
 //----------------------------------------------------------------------------------------------------------------------
 
-bool tick(const GameIn* gameIn)
+bool simulate(const SimulateIn* sim)
 {
     bool result = YES;
-    static f64 t = 0;
-    static int x = 0;
     static const f64 clock = 0.1;
 
-    for (int i = 0; i < gameIn->width * gameIn->height; ++i)
-    {
-        gameIn->foreImage[i] = 0xff0000ff;
-        gameIn->backImage[i] = 0xff000000;
-        gameIn->textImage[i] = (u32)'.';
-    }
-
-    t += gameIn->dt;
-    if (t > clock)
+    gWorld.t += sim->dt;
+    if (gWorld.t > clock)
     {
         //t -= clock;
-        t = 0.0;
-        ++x;
-        if (x >= gameIn->width) x = 0;
+        gWorld.t = 0.0;
+        ++gWorld.x;
+        if (gWorld.x >= gWorld.width) gWorld.x = 0;
     }
 
-    gameIn->textImage[gameIn->width * 2 + x] = (u32)'@';
-    gameIn->foreImage[gameIn->width * 2 + x] = 0xff00ff00;
-
-    i64 numKeyEvents = arrayCount(gameIn->key);
+    i64 numKeyEvents = arrayCount(sim->key);
     if (numKeyEvents)
     {
         for (i64 i = 0; i < numKeyEvents; ++i)
         {
-            KeyState* kev = &gameIn->key[i];
+            KeyState* kev = &sim->key[i];
             if (kev->down && kev->vkey == VK_ESCAPE) result = NO;
         }
     }
 
     return result;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+// Present
+//----------------------------------------------------------------------------------------------------------------------
+
+void present(const PresentIn* pin)
+{
+    for (int i = 0; i < pin->width * pin->height; ++i)
+    {
+        pin->foreImage[i] = 0xff0000ff;
+        pin->backImage[i] = 0xff000000;
+        pin->textImage[i] = (u32)'.';
+    }
+
+    pin->textImage[pin->width * 2 + gWorld.x] = (u32)'@';
+    pin->foreImage[pin->width * 2 + gWorld.x] = 0xff00ff00;
+
+    gWorld.width = pin->width;
 }

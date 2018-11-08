@@ -14,6 +14,10 @@
 
 //----------------------------------------------------------------------------------------------------------------------
 
+#define DEBUG_GL_EXTRA_INFO     NO
+
+//----------------------------------------------------------------------------------------------------------------------
+
 GLuint gVb;
 GLuint gProgram;
 GLuint gFontTex;
@@ -151,43 +155,56 @@ void destroyDynamicTexture(u32* image, int width, int height, GLuint id)
 
 void glMessage(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
 {
+    bool showMessage = NO;
+
     switch (type)
     {
     case GL_DEBUG_TYPE_ERROR:
         pr("ERROR: ");
+        showMessage = YES;
         break;
 
+#if DEBUG_GL_EXTRA_INFO
     case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
         pr("DEPRECATED BEHAVIOUR: ");
+        showMessage = YES;
         break;
 
     case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
         pr("UNDEFINED BEHAVIOUR: ");
+        showMessage = YES;
         break;
 
     case GL_DEBUG_TYPE_PORTABILITY:
         pr("PORTABILITY: ");
+        showMessage = YES;
         break;
 
     case GL_DEBUG_TYPE_PERFORMANCE:
         pr("PERFORMANCE: ");
+        showMessage = YES;
         break;
 
     case GL_DEBUG_TYPE_OTHER:
         pr("OTHER: ");
+        showMessage = YES;
         break;
+#endif
     }
 
-    switch (severity)
+    if (showMessage)
     {
-    case GL_DEBUG_SEVERITY_HIGH:    pr("[HIGH] ");          break;
-    case GL_DEBUG_SEVERITY_MEDIUM:  pr("[MED] ");           break;
-    case GL_DEBUG_SEVERITY_LOW:     pr("[LOW] ");           break;
+        switch (severity)
+        {
+        case GL_DEBUG_SEVERITY_HIGH:    pr("[HIGH] ");          break;
+        case GL_DEBUG_SEVERITY_MEDIUM:  pr("[MED] ");           break;
+        case GL_DEBUG_SEVERITY_LOW:     pr("[LOW] ");           break;
+        }
+
+        prn("%s", message);
+
+        if (severity == GL_DEBUG_SEVERITY_HIGH) K_BREAK();
     }
-
-    prn("%s", message);
-
-    if (severity == GL_DEBUG_SEVERITY_HIGH) K_BREAK();
 }
 
 void fillTexture(u32* image, GLuint id, u32 colour, int width, int height)
@@ -302,6 +319,25 @@ void doneOpenGL()
 
 //----------------------------------------------------------------------------------------------------------------------
 
+void runPresentation(const Window* wnd)
+{
+    PresentIn pin;
+    pin.width = gImageWidth;
+    pin.height = gImageHeight;
+    pin.foreImage = gForeImage;
+    pin.backImage = gBackImage;
+    pin.textImage = gTextImage;
+    present(&pin);
+
+    updateDynamicTexture(gForeTex, gForeImage, gImageWidth, gImageHeight);
+    updateDynamicTexture(gBackTex, gBackImage, gImageWidth, gImageHeight);
+    updateDynamicTexture(gTextTex, gTextImage, gImageWidth, gImageHeight);
+
+    windowRedraw(wnd);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 void onSize(const Window* wnd, int width, int height)
 {
     if (gOpenGLReady)
@@ -315,6 +351,8 @@ void onSize(const Window* wnd, int width, int height)
 
         gImageWidth = cw;
         gImageHeight = ch;
+
+        runPresentation(wnd);
     }
 }
 
@@ -406,27 +444,20 @@ int kmain(int argc, char** argv)
         TimePoint newTime = timeNow();
         f64 dt = timeToSecs(timePeriod(t, newTime));
         t = newTime;
-            
-        GameIn g;
-        g.dt = dt;
-        g.width = gImageWidth;
-        g.height = gImageHeight;
-        g.foreImage = gForeImage;
-        g.backImage = gBackImage;
-        g.textImage = gTextImage;
-        g.key = keys;
-        g.mouse = mouses;
-        if (!tick(&g))
+
+        SimulateIn s;
+        s.dt = dt;
+        s.key = keys;
+        s.mouse = mouses;
+        if (simulate(&s))
+        {
+            runPresentation(&mainWindow);
+        }
+        else
         {
             done();
             windowDone(&mainWindow);
             run = NO;
-        }
-        else
-        {
-            updateDynamicTexture(gForeTex, gForeImage, gImageWidth, gImageHeight);
-            updateDynamicTexture(gBackTex, gBackImage, gImageWidth, gImageHeight);
-            updateDynamicTexture(gTextTex, gTextImage, gImageWidth, gImageHeight);
         }
 
         windowApply(&mainWindow);

@@ -31,23 +31,27 @@ STRUCT_START(MouseState)
 }
 STRUCT_END(MouseState);
 
-STRUCT_START(GameIn)
+STRUCT_START(SimulateIn)
 {
     // Timing
     f64                 dt;
 
+    // Input
+    Array(KeyState)     key;
+    Array(MouseState)   mouse;
+}
+STRUCT_END(SimulateIn);
+
+STRUCT_START(PresentIn)
+{
     // Visuals
     int                 width;
     int                 height;
     u32*                foreImage;
     u32*                backImage;
     u32*                textImage;
-
-    // Input
-    Array(KeyState)     key;
-    Array(MouseState)   mouse;
 }
-STRUCT_END(GameIn);
+STRUCT_END(PresentIn);
 
 //----------------------------------------------------------------------------------------------------------------------
 // Game API
@@ -55,7 +59,8 @@ STRUCT_END(GameIn);
 
 void init();
 void done();
-bool tick(const GameIn* gameIn);
+bool simulate(const SimulateIn* sim);
+void present(const PresentIn* pin);
 
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
