@@ -11,11 +11,22 @@
 // World
 //----------------------------------------------------------------------------------------------------------------------
 
+STRUCT_START(Region)
+{
+    u32*    fore;
+    u32*    back;
+    u32*    text;
+    int     x, y;
+    int     w, h;
+}
+STRUCT_END(Region);
+
 STRUCT_START(World)
 {
-    int width;
-    int x;
-    f64 t;
+    f64     t;          // Timer
+    int     x, y;       // Cursor coords
+    bool    showHelp;   // YES = show help
+    Region  screen;     // Current screen
 }
 STRUCT_END(World);
 
@@ -27,9 +38,17 @@ World gWorld;
 
 void init()
 {
-    gWorld.width = 80;
+    gWorld.t = 0.0;
     gWorld.x = 0;
-    gWorld.t = 0;
+    gWorld.y = 0;
+    gWorld.showHelp = NO;
+    gWorld.screen.fore = 0;
+    gWorld.screen.back = 0;
+    gWorld.screen.text = 0;
+    gWorld.screen.x = 0;
+    gWorld.screen.y = 0;
+    gWorld.screen.w = 0;
+    gWorld.screen.h = 0;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -38,7 +57,9 @@ void init()
 
 void done()
 {
-
+    K_FREE(gWorld.screen.fore, gWorld.screen.w * gWorld.screen.h * sizeof(u32));
+    K_FREE(gWorld.screen.back, gWorld.screen.w * gWorld.screen.h * sizeof(u32));
+    K_FREE(gWorld.screen.text, gWorld.screen.w * gWorld.screen.h * sizeof(u32));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -48,15 +69,13 @@ void done()
 bool simulate(const SimulateIn* sim)
 {
     bool result = YES;
-    static const f64 clock = 0.1;
+    static const f64 clock = 0.5;
 
     gWorld.t += sim->dt;
     if (gWorld.t > clock)
     {
         //t -= clock;
         gWorld.t = 0.0;
-        ++gWorld.x;
-        if (gWorld.x >= gWorld.width) gWorld.x = 0;
     }
 
     i64 numKeyEvents = arrayCount(sim->key);
@@ -78,15 +97,47 @@ bool simulate(const SimulateIn* sim)
 
 void present(const PresentIn* pin)
 {
-    for (int i = 0; i < pin->width * pin->height; ++i)
+    int row, col;
+    // f = fore, b = back, t = text
+    // d = destination, s = source
+    u32* fd = pin->foreImage;
+    u32* bd = pin->backImage;
+    u32* td = pin->textImage;
+    u32* fs = gWorld.screen.fore;
+    u32* bs = gWorld.screen.back;
+    u32* ts = gWorld.screen.text;
+
+    int dStride = gWorld.screen.w < pin->width ? (pin->width - gWorld.screen.w) : 0;
+    int sStride = gWorld.screen.w < pin->width ? 0 : (gWorld.screen.w - pin->width);
+
+    for (row = 0; row < K_MIN(gWorld.screen.h, pin->height); ++row)
     {
-        pin->foreImage[i] = 0xff0000ff;
-        pin->backImage[i] = 0xff000000;
-        pin->textImage[i] = (u32)'.';
+        for (col = 0; col < K_MIN(gWorld.screen.w, pin->width); ++col)
+        {
+            *fd++ = *fs++;
+            *bd++ = *bs++;
+            *td++ = *ts++;
+        }
+        for (; col < pin->width; ++col)
+        {
+            *fd++ = 0xff0000ff;
+            *bd++ = 0xff000000;
+            *td++ = (u32)'.';
+        }
+        fd += dStride;
+        bd += dStride;
+        td += dStride;
+        fs += sStride;
+        bs += sStride;
+        ts += sStride;
     }
-
-    pin->textImage[pin->width * 2 + gWorld.x] = (u32)'@';
-    pin->foreImage[pin->width * 2 + gWorld.x] = 0xff00ff00;
-
-    gWorld.width = pin->width;
+    for (; row < pin->height; ++row)
+    {
+        for (col = 0; col < pin->width; ++col)
+        {
+            *fd++ = 0xff0000ff;
+            *bd++ = 0xff000000;
+            *td++ = (u32)'.';
+        }
+    }
 }
