@@ -36,6 +36,10 @@ STRUCT_START(SimulateIn)
     // Timing
     f64                 dt;
 
+    // Screen meta-data
+    int                 width;
+    int                 height;
+
     // Input
     Array(KeyState)     key;
     Array(MouseState)   mouse;

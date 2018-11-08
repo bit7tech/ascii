@@ -382,6 +382,7 @@ void onPaint(const Window* wnd)
 
 int kmain(int argc, char** argv)
 {
+    debugBreakOnAlloc(0);
     const int width = 800;
     const int height = 600;
     Array(KeyState) keys = 0;
@@ -449,6 +450,8 @@ int kmain(int argc, char** argv)
         s.dt = dt;
         s.key = keys;
         s.mouse = mouses;
+        s.width = gImageWidth;
+        s.height = gImageHeight;
         if (simulate(&s))
         {
             runPresentation(&mainWindow);
@@ -462,6 +465,9 @@ int kmain(int argc, char** argv)
 
         windowApply(&mainWindow);
     }
+
+    arrayDone(keys);
+    arrayDone(mouses);
 
     doneOpenGL();
     return 0;

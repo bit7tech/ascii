@@ -21,16 +21,36 @@ STRUCT_START(Region)
 }
 STRUCT_END(Region);
 
+typedef enum _CommandType
+{
+    COMMAND_Letter,
+}
+CommandType;
+
+STRUCT_START(Command)
+{
+    CommandType type;
+    Region doCmd;
+    Region undoCmd;
+}
+STRUCT_END(Command);
+
 STRUCT_START(World)
 {
-    f64     t;          // Timer
-    int     x, y;       // Cursor coords
-    bool    showHelp;   // YES = show help
-    Region  screen;     // Current screen
+    f64             t;          // Timer
+    int             x, y;       // Cursor coords
+    bool            showHelp;   // YES = show help
+    bool            cursorOn;   // Cursor is currently flashing on.
+    Region          screen;     // Current screen
+    Array(Command)  commands;   // Undo stack
 }
 STRUCT_END(World);
 
 World gWorld;
+
+//----------------------------------------------------------------------------------------------------------------------
+// Commands
+//----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
 // Initialisation
@@ -38,17 +58,7 @@ World gWorld;
 
 void init()
 {
-    gWorld.t = 0.0;
-    gWorld.x = 0;
-    gWorld.y = 0;
-    gWorld.showHelp = NO;
-    gWorld.screen.fore = 0;
-    gWorld.screen.back = 0;
-    gWorld.screen.text = 0;
-    gWorld.screen.x = 0;
-    gWorld.screen.y = 0;
-    gWorld.screen.w = 0;
-    gWorld.screen.h = 0;
+    memoryClear(&gWorld, sizeof(World));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -69,23 +79,54 @@ void done()
 bool simulate(const SimulateIn* sim)
 {
     bool result = YES;
-    static const f64 clock = 0.5;
+    static const f64 clock = 0.25;
 
     gWorld.t += sim->dt;
     if (gWorld.t > clock)
     {
         //t -= clock;
         gWorld.t = 0.0;
+        gWorld.cursorOn = !gWorld.cursorOn;
     }
 
     i64 numKeyEvents = arrayCount(sim->key);
     if (numKeyEvents)
     {
+        //
+        // Handle keyboard
+        //
         for (i64 i = 0; i < numKeyEvents; ++i)
         {
             KeyState* kev = &sim->key[i];
-            if (kev->down && kev->vkey == VK_ESCAPE) result = NO;
+            if (kev->down)
+            {
+                if (!kev->shift && !kev->ctrl && !kev->alt) switch(kev->vkey)
+                {
+                case VK_ESCAPE:
+                    result = NO;
+                    break;
+
+                case VK_LEFT:   --gWorld.x;     break;
+                case VK_RIGHT:  ++gWorld.x;     break;
+                case VK_UP:     --gWorld.y;     break;
+                case VK_DOWN:   ++gWorld.y;     break;
+                }
+
+                if (kev->shift && !kev->ctrl && !kev->alt) switch (kev->vkey)
+                {
+                case VK_LEFT:   gWorld.x -= 10;     break;
+                case VK_RIGHT:  gWorld.x += 10;     break;
+                case VK_UP:     gWorld.y -= 10;     break;
+                case VK_DOWN:   gWorld.y += 10;     break;
+                }
+            }
         }
+        
+        // Keep cursor in bounds
+        if (gWorld.x < 0) gWorld.x = 0;
+        if (gWorld.y < 0) gWorld.y = 0;
+        if (gWorld.x >= sim->width) gWorld.x = sim->width - 1;
+        if (gWorld.y >= sim->height) gWorld.y = sim->height - 1;
     }
 
     return result;
@@ -138,6 +179,15 @@ void present(const PresentIn* pin)
             *fd++ = 0xff0000ff;
             *bd++ = 0xff000000;
             *td++ = (u32)'.';
+        }
+    }
+
+    if (gWorld.cursorOn)
+    {
+        if (gWorld.x >= 0 && gWorld.y >= 0 && gWorld.x < pin->width && gWorld.y < pin->height)
+        {
+            pin->foreImage[gWorld.y * pin->width + gWorld.x] = 0xffffffff;
+            pin->backImage[gWorld.y * pin->width + gWorld.x] = 0xff0000ff;
         }
     }
 }
