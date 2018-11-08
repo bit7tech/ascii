@@ -10,6 +10,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
+#include <game.h>
+
 //----------------------------------------------------------------------------------------------------------------------
 
 GLuint gVb;
@@ -17,10 +19,10 @@ GLuint gProgram;
 GLuint gFontTex;
 GLuint gForeTex;
 GLuint gBackTex;
-GLuint gAsciiTex;
+GLuint gTextTex;
 u32* gForeImage;
 u32* gBackImage;
-u32* gAsciiImage;
+u32* gTextImage;
 bool gOpenGLReady = NO;
 int gFontWidth = 0;
 int gFontHeight = 0;
@@ -248,7 +250,7 @@ void initOpenGL(int width, int height)
     int ch = height / gFontHeight;
     gForeTex = createDynamicTexture(cw, ch, &gForeImage);
     gBackTex = createDynamicTexture(cw, ch, &gBackImage);
-    gAsciiTex = createDynamicTexture(cw, ch, &gAsciiImage);
+    gTextTex = createDynamicTexture(cw, ch, &gTextImage);
     gImageWidth = cw;
     gImageHeight = ch;
 
@@ -276,14 +278,7 @@ void initOpenGL(int width, int height)
     loc = glGetUniformLocation(gProgram, "asciiTex");
     glUniform1i(loc, 3);
     glActiveTexture(GL_TEXTURE3);
-    glBindTexture(GL_TEXTURE_2D, gAsciiTex);
-
-    // Let's do some example initialisation.
-    fillTexture(gForeImage, gForeTex, 0xff0000ff, cw, ch);
-    fillTexture(gBackImage, gBackTex, 0xff000000, cw, ch);
-    fillTexture(gAsciiImage, gAsciiTex, 0x4c4c4c4c, cw, ch);
-    for (int i = 0; i < cw; ++i) gAsciiImage[i] = i;
-    updateDynamicTexture(gAsciiTex, gAsciiImage, cw, ch);
+    glBindTexture(GL_TEXTURE_2D, gTextTex);
 
     gOpenGLReady = YES;
 }
@@ -298,11 +293,9 @@ void doneOpenGL()
     glDeleteProgram(gProgram);
     glDeleteTextures(1, &gFontTex);
 
-    int cw = 800 / 10;
-    int ch = 600 / 16;
-    destroyDynamicTexture(gForeImage, cw, ch, gForeTex);
-    destroyDynamicTexture(gBackImage, cw, ch, gBackTex);
-    destroyDynamicTexture(gAsciiImage, cw, ch, gAsciiTex);
+    destroyDynamicTexture(gForeImage, gImageWidth, gImageHeight, gForeTex);
+    destroyDynamicTexture(gBackImage, gImageWidth, gImageHeight, gBackTex);
+    destroyDynamicTexture(gTextImage, gImageWidth, gImageHeight, gTextTex);
 
     gOpenGLReady = NO;
 }
@@ -318,13 +311,7 @@ void onSize(const Window* wnd, int width, int height)
 
         resizeDynamicTexture(gForeTex, gImageWidth, gImageHeight, cw, ch, &gForeImage);
         resizeDynamicTexture(gBackTex, gImageWidth, gImageHeight, cw, ch, &gBackImage);
-        resizeDynamicTexture(gAsciiTex, gImageWidth, gImageHeight, cw, ch, &gAsciiImage);
-
-        fillTexture(gForeImage, gForeTex, 0xff0000ff, cw, ch);
-        fillTexture(gBackImage, gBackTex, 0xff000000, cw, ch);
-        fillTexture(gAsciiImage, gAsciiTex, 0x4c4c4c4c, cw, ch);
-        for (int i = 0; i < cw; ++i) gAsciiImage[i] = i;
-        updateDynamicTexture(gAsciiTex, gAsciiImage, cw, ch);
+        resizeDynamicTexture(gTextTex, gImageWidth, gImageHeight, cw, ch, &gTextImage);
 
         gImageWidth = cw;
         gImageHeight = ch;
@@ -359,6 +346,8 @@ int kmain(int argc, char** argv)
 {
     const int width = 800;
     const int height = 600;
+    Array(KeyState) keys = 0;
+    Array(MouseState) mouses = 0;
 
     Window mainWindow;
     windowInit(&mainWindow);
@@ -372,13 +361,20 @@ int kmain(int argc, char** argv)
     windowApply(&mainWindow);
     initOpenGL(width, height);
 
+    init();
+
     WindowEvent ev;
     bool run = YES;
+    TimePoint t = timeNow();
     while (run)
     {
+        arrayClear(keys);
+        arrayClear(mouses);
+
+        windowUpdate(&mainWindow);
+
         while (windowPoll(&ev))
         {
-            windowUpdate(&mainWindow);
 
             switch (ev.type)
             {
@@ -386,24 +382,54 @@ int kmain(int argc, char** argv)
                 run = NO;
                 break;
 
-            case K_EVENT_INPUT:
+            case K_EVENT_KEY:
                 if (ev.input.down && ev.input.alt && (ev.input.key == VK_RETURN))
                 {
                     mainWindow.fullscreen = !mainWindow.fullscreen;
                 }
-
-                if (ev.input.down && ev.input.key == VK_ESCAPE)
+                else
                 {
-                    windowDone(&mainWindow);
+                    KeyState* k = arrayNew(keys);
+                    k->down = ev.input.down;
+                    k->shift = ev.input.shift;
+                    k->ctrl = ev.input.ctrl;
+                    k->alt = ev.input.alt;
+                    k->vkey = ev.input.key;
                 }
                 break;
 
             default:
                 break;
             }
-
-            windowApply(&mainWindow);
         }
+
+        TimePoint newTime = timeNow();
+        f64 dt = timeToSecs(timePeriod(t, newTime));
+        t = newTime;
+            
+        GameIn g;
+        g.dt = dt;
+        g.width = gImageWidth;
+        g.height = gImageHeight;
+        g.foreImage = gForeImage;
+        g.backImage = gBackImage;
+        g.textImage = gTextImage;
+        g.key = keys;
+        g.mouse = mouses;
+        if (!tick(&g))
+        {
+            done();
+            windowDone(&mainWindow);
+            run = NO;
+        }
+        else
+        {
+            updateDynamicTexture(gForeTex, gForeImage, gImageWidth, gImageHeight);
+            updateDynamicTexture(gBackTex, gBackImage, gImageWidth, gImageHeight);
+            updateDynamicTexture(gTextTex, gTextImage, gImageWidth, gImageHeight);
+        }
+
+        windowApply(&mainWindow);
     }
 
     doneOpenGL();
