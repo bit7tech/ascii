@@ -370,7 +370,7 @@ void onPaint(const Window* wnd)
         GLint uFontRes = glGetUniformLocation(gProgram, "uFontRes");
         glProgramUniform2f(gProgram, uFontRes, (float)gFontWidth, (float)gFontHeight);
         GLint uResolution = glGetUniformLocation(gProgram, "uResolution");
-        glProgramUniform2f(gProgram, uResolution, (float)wnd->bounds.size.cx, (float)wnd->bounds.size.cy);
+        glProgramUniform2f(gProgram, uResolution, (float)wnd->bounds.w, (float)wnd->bounds.h);
 
         glUseProgram(gProgram);
 
@@ -391,8 +391,8 @@ int kmain(int argc, char** argv)
     Window mainWindow;
     windowInit(&mainWindow);
     mainWindow.title = stringMake("ASCII demo");
-    mainWindow.bounds.size.cx = width;
-    mainWindow.bounds.size.cy = height;
+    mainWindow.bounds.w = width;
+    mainWindow.bounds.h = height;
     mainWindow.resizeable = YES;
     mainWindow.opengl = YES;
     mainWindow.paintFunc = &onPaint;

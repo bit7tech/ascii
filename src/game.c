@@ -32,6 +32,8 @@ STRUCT_START(Command)
     CommandType type;
     Region doCmd;
     Region undoCmd;
+    int width;
+    int height;
 }
 STRUCT_END(Command);
 
@@ -43,10 +45,44 @@ STRUCT_START(World)
     bool            cursorOn;   // Cursor is currently flashing on.
     Region          screen;     // Current screen
     Array(Command)  commands;   // Undo stack
+    int             cmdIndex;
 }
 STRUCT_END(World);
 
 World gWorld;
+
+//----------------------------------------------------------------------------------------------------------------------
+// Region control
+//----------------------------------------------------------------------------------------------------------------------
+
+// Copies a rectangle from a source 2D array with width 'srcWidth' to a destination 2D array with dimensions w, h.
+void copyToRegion(int x, int y, int w, int h, int srcWidth, int srcHeight, const u32* src, u32* dst)
+{
+    blit(dst, sizeMake(w, h), src, sizeMake(srcWidth, srcHeight), 0, 0, x, y, w, h, (int)sizeof(u32));
+}
+
+// Initialise a region and optionally copy data from the screen
+ void newRegion(Region* reg, int x, int y, int w, int h, bool copyScreen)
+{
+     reg->fore = K_ALLOC(w * h * sizeof(u32));
+     reg->back = K_ALLOC(w * h * sizeof(u32));
+     reg->text = K_ALLOC(w * h * sizeof(u32));
+     reg->x = x;
+     reg->y = y;
+     reg->w = w;
+     reg->h = h;
+     if (copyScreen)
+     {
+         copyToRegion(x, y, w, h, gWorld.screen.w, gWorld.screen.h, gWorld.screen.fore, reg->fore);
+         copyToRegion(x, y, w, h, gWorld.screen.w, gWorld.screen.h, gWorld.screen.back, reg->back);
+         copyToRegion(x, y, w, h, gWorld.screen.w, gWorld.screen.h, gWorld.screen.text, reg->text);
+     }
+}
+
+ void applyRegion(Region* reg)
+ {
+
+ }
 
 //----------------------------------------------------------------------------------------------------------------------
 // Commands
@@ -65,11 +101,25 @@ void init()
 // Shutdown
 //----------------------------------------------------------------------------------------------------------------------
 
+void killRegion(RegionRef region)
+{
+    K_FREE(region->fore, region->w * region->h * sizeof(u32));
+    K_FREE(region->back, region->w * region->h * sizeof(u32));
+    K_FREE(region->text, region->w * region->h * sizeof(u32));
+}
+
 void done()
 {
     K_FREE(gWorld.screen.fore, gWorld.screen.w * gWorld.screen.h * sizeof(u32));
     K_FREE(gWorld.screen.back, gWorld.screen.w * gWorld.screen.h * sizeof(u32));
     K_FREE(gWorld.screen.text, gWorld.screen.w * gWorld.screen.h * sizeof(u32));
+
+    arrayFor(gWorld.commands)
+    {
+        killRegion(&gWorld.commands[i].doCmd);
+        killRegion(&gWorld.commands[i].undoCmd);
+    }
+    arrayDone(gWorld.commands);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
