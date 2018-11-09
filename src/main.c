@@ -262,7 +262,7 @@ void initOpenGL(int width, int height)
     glUseProgram(gProgram);
 
     // Set up textures
-    gFontTex = loadFontTexture("font_10_16.png");
+    gFontTex = loadFontTexture("font1.png");
     int cw = width / gFontWidth;
     int ch = height / gFontHeight;
     gForeTex = createDynamicTexture(cw, ch, &gForeImage);
