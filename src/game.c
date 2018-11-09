@@ -177,6 +177,7 @@ void commandLetter(int x, int y, char c)
     *cmd->doCmd.back = 0xff000000;
     *cmd->doCmd.text = (u32)c;
     applyRegion(&cmd->doCmd);
+    ++gWorld.x;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
