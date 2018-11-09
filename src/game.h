@@ -19,6 +19,7 @@ STRUCT_START(KeyState)
     bool ctrl;
     bool alt;
     int vkey;
+    char ch;
 }
 STRUCT_END(KeyState);
 

@@ -437,6 +437,15 @@ int kmain(int argc, char** argv)
                 }
                 break;
 
+            case K_EVENT_CHAR:
+                {
+                    KeyState* k = arrayNew(keys);
+                    k->down = YES;
+                    k->vkey = 0;
+                    k->ch = ev.ch;
+                }
+                break;
+
             default:
                 break;
             }
